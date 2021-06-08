@@ -25,6 +25,8 @@ pub mod pallet {
         ClaimCreated(T::AccountId, Vec<u8>),
         /// Event emitted when a claim is revoked by the owner. [who, claim]
         ClaimRevoked(T::AccountId, Vec<u8>),
+        /// Event emitted when a claim is mutated by the owner. [who, claim, receiver]
+        ClaimMutated(T::AccountId, Vec<u8>, T::AccountId),
     }
     
     #[pallet::error]   // <-- Step 4. code block will replace this.
@@ -105,6 +107,26 @@ pub mod pallet {
 
             // Emit an event that the claim was erased.
             Self::deposit_event(Event::ClaimRevoked(sender, proof));
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        fn mutate_claim(
+            origin: OriginFor<T>,
+            proof: Vec<u8>,
+            receiver: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+
+            let (owner, _) = Proofs::<T>::get(&proof).ok_or(Error::<T>::NoSuchProof)?;
+            ensure!(sender == owner, Error::<T>::NotProofOwner);
+
+            // hand over here!
+            Proofs::<T>::insert(&proof, (&receiver, <frame_system::Module<T>>::block_number()));
+
+            // Emit an event that the claim was mutated.
+            Self::deposit_event(Event::ClaimMutated(sender, proof, receiver));
 
             Ok(().into())
         }
